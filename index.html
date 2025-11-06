@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ростовский Пивной Забег</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        /* Основные стили игры */
+        body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            font-size: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            border: 4px solid #d40000; /* Более яркая рамка */
+            box-shadow: 0 0 25px rgba(255, 50, 50, 0.7);
+            background-color: #000;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* Элементы интерфейса */
+        #header-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 15px;
+            background-color: #111;
+            border: 2px solid #555;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            border-radius: 5px;
+        }
+
+        .info-panel {
+            font-size: 1.2em;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00cc00; /* Яркий светящийся текст */
+        }
+
+        /* Канвас */
+        #game-canvas {
+            display: block;
+            background-color: #1a2a40; /* Глубокое ночное небо */
+        }
+
+        /* Стиль для начального экрана и диалогов */
+        #intro-screen, #dialogue-overlay, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+        
+        /* КОНТЕЙНЕР ДИАЛОГА */
+        #dialogue-overlay {
+            background-color: rgba(0, 0, 0, 0.7); 
+            display: none;
+            flex-direction: column;
+            justify-content: space-between; /* Для размещения иконок */
+            padding: 0;
+        }
+
+        /* КОНТЕЙНЕР ТЕКСТА ДИАЛОГА */
+        #dialogue-box {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        
+        #dialogue-text-content {
+            border: 3px solid #00ff00;
+            background-color: #050505;
+            padding: 15px;
+            width: 90%;
+            min-height: 80px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            line-height: 1.4;
+            font-size: 1.1em;
+        }
+
+        #typewriter-text {
+            white-space: pre-wrap;
+            min-height: 200px;
+            text-align: center;
+            line-height: 1.6;
+            color: #fff;
+        }
+
+        /* НОВЫЕ СТИЛИ ДЛЯ ИКОНОК ПЕРСОНАЖЕЙ */
+        .speaker-icon {
+            position: absolute;
+            bottom: 40px; /* Над линией земли */
+            width: 100px;
+            height: 100px;
+            font-size: 60px;
+            text-align: center;
+            line-height: 100px;
+            filter: drop-shadow(0 0 10px rgba(0, 255, 0, 0.5)); /* Светящийся эффект */
+            transition: opacity 0.3s;
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        #speaker-left {
+            left: 50px;
+            color: #e6b800; /* Цвет Юрия */
+        }
+        
+        #speaker-right {
+            right: 50px;
+            color: #00ff00; /* Цвет Собеседника */
+        }
+
+        /* Кнопка */
+        .game-button {
+            padding: 12px 25px;
+            margin-top: 30px;
+            font-size: 1.6em;
+            font-family: 'Press Start 2P', monospace;
+            cursor: pointer;
+            background-color: #d40000;
+            color: #fff;
+            border: 4px solid #ff5555;
+            border-radius: 5px;
+            box-shadow: 0 6px 0 #8b0000;
+            transition: all 0.1s;
+        }
+
+        .game-button:hover {
+            background-color: #ff5555;
+            box-shadow: 0 4px 0 #8b0000;
+            transform: translateY(2px);
+        }
+        
+        .game-button:active {
+            box-shadow: 0 0 0 #8b0000;
+            transform: translateY(6px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="header-bar">
+        <div class="info-panel">Время: <span id="time-display">22:59:00:00</span></div>
+        <div class="info-panel">Конфеты: <span id="candy-display">0</span></div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Стартовый экран -->
+        <div id="intro-screen">
+            <!-- КНОПКА ДЛЯ АКТИВАЦИИ ЗВУКА И НАЧАЛА ВСТУПЛЕНИЯ -->
+            <button id="pre-start-button" class="game-button">НАЧАТЬ</button>
+            <pre id="typewriter-text" style="display: none;"></pre>
+            <button id="start-button" class="game-button" style="display: none;">СТАРТ</button>
+        </div>
+
+        <!-- Оверлей Диалога (включает иконки) -->
+        <div id="dialogue-overlay" style="display: none;">
+            
+            <!-- Иконка Юрия (слева) -->
+            <div id="speaker-left" class="speaker-icon" style="opacity: 0;">👨</div> 
+            
+            <!-- Иконка Собеседника (справа) -->
+            <div id="speaker-right" class="speaker-icon" style="opacity: 0;"></div> 
+            
+            <div id="dialogue-box">
+                <div id="dialogue-text-content"></div>
+            </div>
+        </div>
+
+        <!-- Экран завершения игры -->
+        <div id="game-over-screen" style="display: none;">
+            <h1 id="game-over-message" style="font-size: 2em; color: #ff0000; text-align: center;"></h1>
+            <button class="game-button" onclick="window.location.reload()">НАЧАТЬ СНОВА</button>
+        </div>
+
+    </div>
+
+    <!-- Инструкции для игрока -->
+    <div style="margin-top: 10px; font-size: 0.9em; text-align: center; color: #aaa;">
+        Управление: [ПРОБЕЛ] - Прыжок.
+    </div>
+
+    <script>
+        // Глобальные переменные для Canvas
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 400;
+
+        // Элементы DOM
+        const introScreen = document.getElementById('intro-screen');
+        const preStartButton = document.getElementById('pre-start-button');
+        const typewriterTextElement = document.getElementById('typewriter-text');
+        const startButton = document.getElementById('start-button');
+        const timeDisplay = document.getElementById('time-display');
+        const candyDisplay = document.getElementById('candy-display');
+        const dialogueOverlay = document.getElementById('dialogue-overlay'); 
+        const dialogueTextContent = document.getElementById('dialogue-text-content'); 
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const speakerLeft = document.getElementById('speaker-left'); 
+        const speakerRight = document.getElementById('speaker-right'); 
+
+
+        // Глобальное состояние игры
+        let gameState = {
+            isRunning: false, // Флаг для движения/коллизий
+            isDialogue: false, // Флаг для активного диалога
+            distance: 0,
+            yuri: { x: 50, y: 0, width: 30, height: 60, dy: 0, onGround: true, isSlowing: false },
+            groundY: GAME_HEIGHT - 40,
+            baseSpeed: 180, 
+            currentSpeed: 180,
+            candyCount: 0,
+            startTime: null,
+            timerInterval: null,
+            lastTime: 0,
+            gameOver: false,
+            runFrame: 0, 
+            animationTimer: 0,
+            frameDuration: 0.1, 
+        };
+
+        const GAME_END_DISTANCE = 10000; // Целевая дистанция
+        const MAX_TIME_MS = 60000; // 60 секунд (до 23:00)
+        const SPEAKER_ICONS = {
+            "Юрий": { icon: "👨", side: "left" },
+            "Евгений Викторович": { icon: "👴", side: "right" } 
+        };
+
+        const objects = [];
+
+        // --- ЗВУКОВЫЕ УТИЛИТЫ (Typewriter Click) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioContext;
+        let isAudioReady = false;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new AudioContext();
+                isAudioReady = true;
+            }
+        }
+
+        // Ретро-блип
+        function playTypewriterSound() {
+            if (!isAudioReady) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'sine'; 
+            const baseFreq = 400 + Math.random() * 50;
+            
+            gainNode.gain.setValueAtTime(0.0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.005);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.08);
+
+            oscillator.frequency.setValueAtTime(baseFreq, audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(baseFreq * 0.8, audioContext.currentTime + 0.04);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // --- TYPEWRITER EFFECT / ДИАЛОГИ ---
+        async function typewriterEffect(element, fullText, speed = 30) {
+            element.innerHTML = '';
+            for (let i = 0; i < fullText.length; i++) {
+                if (gameState.isDialogue || !gameState.isRunning) {
+                     if (fullText[i] !== '\n' && fullText[i] !== ' ') {
+                        playTypewriterSound();
+                    }
+                }
+                element.innerHTML += fullText[i];
+                await new Promise(resolve => setTimeout(resolve, speed));
+            }
+        }
+        
+        function updateSpeakerIcons(speaker) {
+            // Сброс всех иконок
+            speakerLeft.style.opacity = 0;
+            speakerRight.style.opacity = 0;
+            speakerRight.textContent = '';
+
+            if (speaker) {
+                const config = SPEAKER_ICONS[speaker];
+                if (config) {
+                    if (config.side === 'left') {
+                        speakerLeft.style.opacity = 1;
+                    } else if (config.side === 'right') {
+                        speakerRight.textContent = config.icon;
+                        speakerRight.style.opacity = 1;
+                        // Также показываем Юрия, чтобы он смотрел на собеседника
+                        speakerLeft.style.opacity = 1; 
+                    }
+                }
+            }
+        }
+
+        async function showDialogue(speaker, text, onEndCallback = () => {}) {
+            // isRunning = false; чтобы остановить движение игрока/мира
+            gameState.isRunning = false;
+            gameState.isDialogue = true;
+            dialogueOverlay.style.display = 'flex';
+            
+            updateSpeakerIcons(speaker);
+            
+            const fullText = speaker ? `${speaker}: \n${text}` : text;
+            
+            await typewriterEffect(dialogueTextContent, fullText, 50);
+
+            const continueButton = document.createElement('button');
+            continueButton.className = 'game-button';
+            continueButton.textContent = 'Продолжить';
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.textAlign = 'center';
+            buttonContainer.appendChild(continueButton);
+            dialogueTextContent.appendChild(buttonContainer);
+
+
+            continueButton.onclick = () => {
+                dialogueOverlay.style.display = 'none';
+                dialogueTextContent.innerHTML = '';
+                gameState.isDialogue = false;
+                gameState.isRunning = true;
+                
+                updateSpeakerIcons(null); 
+                
+                onEndCallback();
+            };
+        }
+
+        const dialogues = [
+            {
+                distance: 3500,
+                speaker: "Евгений Викторович",
+                // Объединенный текст от Евгения и Олега
+                text: "Здорово, Юра! Куда это ты на ночь глядя? Туман сегодня, аж сгущает тоску. Наш Михаил вон опять на своей 'Волге' застрял, а Алексей с утра кричал, что пиво кончилось. Ха-ха! Кстати, анекдот в тему: 'Идёт мужик по туману, а навстречу ему — собака. Мужик: 'Ты кто?' Собака: 'Гав-гав!' Мужик: 'Ох, как хорошо, что ты сразу сказал! Я-то думал, ты еж!' [Прочистив горло, он продолжает, не давая Юрию и слова сказать]: А ты знаешь, тут Олег свой новый 'Чери Тигго' выкатил. Китайцы, конечно, удивляют. Раньше 'Жигули' были, а теперь вот, у них кроссоверы.  Да они весь мир захватят! Взять хоть экономику. Это как **волновой эффект**. Ты бросаешь камень, и волны расходятся. Так же и с технологиями — один прорыв, и все меняется. Вот и китайские машины — это уже не просто машины, это культурная волна. Понимаешь? Это же как приготовить идеальный **крем-брюле**!  Ты думаешь, это просто? Нет! Нужно аккуратно смешать сливки, желтки и сахар, нагреть до нужной температуры, а потом самое главное — карамельная корочка. Это, Юра, и есть философия жизни: сладкое внутри и хрусткая защита снаружи. Ладно, беги, тебе нельзя задерживаться, время-то! Удачи!",
+                done: false
+            }
+        ];
+
+        // --- ИГРОВАЯ ЛОГИКА ---
+        
+        function drawYuri() {
+            const yuri = gameState.yuri;
+            const color = yuri.isSlowing ? '#ff0000' : '#e6b800'; 
+            
+            ctx.fillStyle = color;
+            
+            // Голова (квадрат для ретро-стиля)
+            ctx.fillRect(yuri.x + 5, yuri.y, yuri.width - 10, 10);
+            
+            // Тело
+            ctx.fillRect(yuri.x, yuri.y + 10, yuri.width, yuri.height - 20);
+
+            // Простая анимация бега (ноги)
+            const legColor = '#333'; 
+            const legWidth = 8;
+            const legHeight = 20;
+
+            if (yuri.onGround) {
+                // Нога 1 (передняя)
+                ctx.fillStyle = legColor;
+                if (gameState.runFrame === 0) {
+                     ctx.fillRect(yuri.x + 5, yuri.y + yuri.height - legHeight, legWidth, legHeight);
+                     ctx.fillRect(yuri.x + yuri.width - legWidth - 5, yuri.y + yuri.height - legHeight + 5, legWidth, legHeight - 5);
+                } else {
+                     ctx.fillRect(yuri.x + 5, yuri.y + yuri.height - legHeight + 5, legWidth, legHeight - 5);
+                     ctx.fillRect(yuri.x + yuri.width - legWidth - 5, yuri.y + yuri.height - legHeight, legWidth, legHeight);
+                }
+            } else {
+                // Ноги в прыжке
+                ctx.fillRect(yuri.x + 5, yuri.y + yuri.height - legHeight + 10, legWidth, legHeight - 10);
+                ctx.fillRect(yuri.x + yuri.width - legWidth - 5, yuri.y + yuri.height - legHeight + 10, legWidth, legHeight - 10);
+            }
+        }
+
+        let backgroundOffset = 0;
+        const groundLevel = GAME_HEIGHT - 40;
+        
+        function drawBackground(deltaTime) {
+            // Фон (Градиент Ночного Неба)
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, groundLevel);
+            skyGradient.addColorStop(0, '#1a2a40'); 
+            skyGradient.addColorStop(1, '#3c5a75');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, GAME_WIDTH, groundLevel);
+
+            // Сдвиг фона только если игра запущена (т.е. Юрий бежит)
+            if (gameState.isRunning && !gameState.isDialogue) {
+                const scrollX = gameState.currentSpeed * deltaTime;
+                backgroundOffset = (backgroundOffset + scrollX) % 1000; 
+            }
+
+
+            // Земля (Платформа)
+            ctx.fillStyle = '#222'; 
+            ctx.fillRect(0, groundLevel, GAME_WIDTH, GAME_HEIGHT - groundLevel);
+            
+            // Добавляем текстуру земле (линии)
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for(let i = 0; i < GAME_WIDTH; i += 50) {
+                 ctx.moveTo(i - backgroundOffset * 0.5, groundLevel);
+                 ctx.lineTo(i - backgroundOffset * 0.5 + 20, groundLevel + 10);
+            }
+            ctx.stroke();
+
+
+            // Простые домики и деревья (сдвиг для эффекта параллакса и силуэтов)
+            const drawParallaxElement = (x, y, width, height, color) => {
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, width, height);
+                // Добавим контрастную "луну" или "фонарь" в окне
+                if (height > 50) {
+                     ctx.fillStyle = '#ffcc00';
+                     ctx.fillRect(x + width * 0.7, y + 10, 5, 5);
+                }
+            };
+            
+            // Слой 1: Далекие деревья (0.1x скорость)
+            const farColor = '#2d3e4c';
+            for (let i = -1; i < (GAME_WIDTH / 100) + 1; i++) {
+                const x = ((i * 150) - (backgroundOffset * 0.1)) % (GAME_WIDTH + 150);
+                if (x < GAME_WIDTH) {
+                    drawParallaxElement(x, groundLevel - 30, 20, 30, farColor);
+                }
+            }
+            
+            // Слой 2: Домики на горизонте (0.3x скорость)
+            const midColor = '#4a627a';
+            for (let i = -1; i < (GAME_WIDTH / 100) + 1; i++) {
+                const x = ((i * 200) - (backgroundOffset * 0.3)) % (GAME_WIDTH + 200);
+                if (x < GAME_WIDTH) {
+                    drawParallaxElement(x, groundLevel - 70, 60, 70, midColor);
+                }
+            }
+            
+            // Слой 3: Ближние фонари/деревья (0.6x скорость)
+            const nearColor = '#5e7b99';
+            for (let i = -1; i < (GAME_WIDTH / 100) + 1; i++) {
+                const x = ((i * 300) - (backgroundOffset * 0.6)) % (GAME_WIDTH + 300);
+                if (x < GAME_WIDTH) {
+                    drawParallaxElement(x, groundLevel - 50, 10, 50, nearColor);
+                }
+            }
+
+            // Эффект тумана (полупрозрачный слой)
+            ctx.fillStyle = 'rgba(60, 90, 120, 0.4)'; 
+            ctx.fillRect(0, groundLevel - 100, GAME_WIDTH, 100); 
+            ctx.fillStyle = 'rgba(60, 90, 120, 0.6)'; 
+            ctx.fillRect(0, groundLevel - 20, GAME_WIDTH, 20); 
+        }
+
+        // Отрисовка объектов
+        function drawObject(obj) {
+            // Объекты рисуются относительно смещения Юрия
+            const xPos = obj.x - gameState.distance;
+
+            if (xPos + obj.width < 0 || xPos > GAME_WIDTH) return;
+
+            ctx.font = '28px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            
+            switch (obj.type) {
+                case 'candy':
+                    ctx.fillStyle = '#ff88ff';
+                    ctx.beginPath();
+                    ctx.arc(xPos + obj.width / 2, obj.y + obj.height / 2, obj.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('🍬', xPos + obj.width / 2, obj.y + obj.height - 2);
+                    break;
+                
+                case 'trash':
+                    ctx.fillStyle = '#6b7a8c'; 
+                    ctx.fillRect(xPos, obj.y, obj.width, obj.height);
+                    ctx.fillStyle = '#3f4b59'; 
+                    ctx.fillRect(xPos - 2, obj.y, obj.width + 4, 5);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('🗑️', xPos + obj.width / 2, obj.y + obj.height - 5);
+                    break;
+                
+                case 'dog':
+                    ctx.fillStyle = '#b8860b'; 
+                    ctx.fillRect(xPos, obj.y + 10, obj.width, obj.height - 10); 
+                    ctx.beginPath();
+                    ctx.arc(xPos + obj.width, obj.y + 10, 5, 0, Math.PI * 2); 
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('🐕', xPos + obj.width / 2, obj.y + obj.height - 5);
+                    break;
+                    
+                case 'bum':
+                    ctx.fillStyle = '#708090'; 
+                    ctx.fillRect(xPos, obj.y, obj.width, obj.height);
+                    ctx.fillStyle = '#fce4c4';
+                    ctx.fillRect(xPos + 5, obj.y + 5, 25, 20); 
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('🧔', xPos + obj.width / 2, obj.y + obj.height - 5);
+                    break;
+
+                case 'stall':
+                    // Пивной Ларек
+                    ctx.fillStyle = '#ffc300'; 
+                    ctx.fillRect(xPos, obj.y, obj.width, obj.height);
+                    ctx.fillStyle = '#8b0000'; 
+                    ctx.fillRect(xPos, obj.y, obj.width, 10);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '10px "Press Start 2P"';
+                    ctx.fillText('ПИВО', xPos + obj.width / 2, obj.y + 8);
+                    ctx.fillText('🍻', xPos + obj.width / 2, obj.y + obj.height - 15);
+                    break;
+                    
+                 case 'neighbor':
+                     ctx.fillStyle = '#00ff00'; 
+                     ctx.fillRect(xPos, obj.y, obj.width, obj.height);
+                     ctx.fillStyle = '#fff';
+                     // Используем иконку Евгения
+                     ctx.fillText('👴', xPos + obj.width / 2, obj.y + obj.height - 5); 
+                     break;
+            }
+        }
+
+        // --- УПРАВЛЕНИЕ ИГРОКОМ ---
+        function handleJump() {
+            if (gameState.yuri.onGround && gameState.isRunning) {
+                gameState.yuri.dy = -15; // Скорость прыжка
+                gameState.yuri.onGround = false;
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                handleJump();
+            }
+        });
+
+        // --- ОБНОВЛЕНИЕ СОСТОЯНИЯ (GAME LOOP) ---
+        function update(deltaTime) {
+            // Движение и коллизии происходят, только если игра RUNNING и не в DIALOGUE
+            if (!gameState.isRunning || gameState.gameOver || gameState.isDialogue) return;
+
+            // 1. Движение и Гравитация Юрия
+            gameState.yuri.y += gameState.yuri.dy;
+            gameState.yuri.dy += 0.6; // Гравитация
+
+            // Проверка приземления
+            if (gameState.yuri.y + gameState.yuri.height >= gameState.groundY) {
+                gameState.yuri.y = gameState.groundY - gameState.yuri.height;
+                gameState.yuri.dy = 0;
+                gameState.yuri.onGround = true;
+            }
+            
+            // 2. Анимация бега
+            if (gameState.yuri.onGround) {
+                gameState.animationTimer += deltaTime;
+                if (gameState.animationTimer >= gameState.frameDuration) {
+                    gameState.runFrame = 1 - gameState.runFrame; // Переключаем 0 <-> 1
+                    gameState.animationTimer = 0;
+                }
+            }
+            
+            // 3. Расчет сдвига и Дистанции
+            const distanceMoved = gameState.currentSpeed * deltaTime;
+            gameState.distance += distanceMoved;
+
+            // 4. Проверка Диалогов 
+            dialogues.forEach(d => {
+                if (!d.done && gameState.distance >= d.distance - GAME_WIDTH / 2) {
+                    d.done = true;
+                    // Ищем соседа, чтобы его удалить после диалога
+                    const neighborIndex = objects.findIndex(obj => 
+                        obj.type === 'neighbor' && 
+                        Math.abs(obj.worldDistance - d.distance) < 50 
+                    );
+                    
+                    showDialogue(d.speaker, d.text, () => {
+                        if (neighborIndex !== -1) {
+                            objects.splice(neighborIndex, 1);
+                        }
+                    });
+                }
+            });
+
+            // 5. Обработка Объектов и Коллизий
+            for (let i = 0; i < objects.length; i++) {
+                const obj = objects[i];
+                // Сдвиг объекта (визуально)
+                obj.x -= distanceMoved;
+
+                // Проверка коллизии Юрия и Объекта
+                if (obj.type !== 'stall' && obj.type !== 'neighbor' && 
+                    obj.x < gameState.yuri.x + gameState.yuri.width &&
+                    obj.x + obj.width > gameState.yuri.x &&
+                    obj.y < gameState.yuri.y + gameState.yuri.height &&
+                    obj.y + obj.height > gameState.yuri.y) {
+                    
+                    let collisionHandled = false;
+
+                    switch (obj.type) {
+                        case 'candy':
+                            gameState.candyCount++;
+                            candyDisplay.textContent = gameState.candyCount;
+                            collisionHandled = true; 
+                            break;
+                        
+                        case 'dog':
+                        case 'bum':
+                            if (gameState.candyCount > 0) {
+                                gameState.candyCount--;
+                                candyDisplay.textContent = gameState.candyCount;
+                            } else {
+                                applySlowdown(1.5); 
+                            }
+                            collisionHandled = true; 
+                            break;
+
+                        case 'trash':
+                            applySlowdown(2.5); 
+                            gameState.currentSpeed *= 0.8; // Дополнительное замедление
+                            collisionHandled = true; 
+                            break;
+                    }
+                    
+                    if (collisionHandled) {
+                        objects.splice(i, 1);
+                        i--; 
+                    }
+                }
+                
+                // Проверка победы (столкновение с ларьком)
+                if (obj.type === 'stall' && 
+                    obj.x < gameState.yuri.x + gameState.yuri.width &&
+                    obj.x + obj.width > gameState.yuri.x) {
+                    endGame("Успел! Пиво найдено! ПОБЕДА!");
+                    return;
+                }
+            }
+
+            // Удаление объектов, вышедших за экран
+            objects.filter(obj => (obj.x + obj.width) > 0);
+
+            // 6. Спавн новых объектов (случайно)
+            spawnObjects(distanceMoved);
+        }
+
+        // Эффект замедления
+        let slowdownTimeout = null;
+        function applySlowdown(durationSeconds) {
+            if (slowdownTimeout) clearTimeout(slowdownTimeout);
+            
+            gameState.currentSpeed = gameState.baseSpeed * 0.3; 
+            gameState.yuri.isSlowing = true;
+            
+            slowdownTimeout = setTimeout(() => {
+                gameState.currentSpeed = gameState.baseSpeed;
+                gameState.yuri.isSlowing = false;
+                slowdownTimeout = null;
+            }, durationSeconds * 1000);
+        }
+
+        // Логика спавна
+        let lastObjectX = GAME_WIDTH;
+        function spawnObjects(distanceMoved) {
+            // Визуальное смещение последнего объекта
+            lastObjectX -= distanceMoved;
+            
+            // Если последний объект ушел достаточно далеко
+            if (lastObjectX < GAME_WIDTH - Math.random() * 800 - 300) {
+                const rand = Math.random();
+                let type;
+                let width, height, color;
+
+                if (rand < 0.3) {
+                    type = 'candy'; width = 20; height = 20; color = '#ff88ff'; 
+                } else if (rand < 0.5) {
+                    type = 'trash'; width = 40; height = 40; color = '#888'; 
+                } else if (rand < 0.75) {
+                    type = 'dog'; width = 50; height = 30; color = '#b8860b'; 
+                } else {
+                    type = 'bum'; width = 35; height = 55; color = '#708090'; 
+                }
+
+                // Объекты на земле
+                const y = gameState.groundY - height;
+                
+                const newObject = {
+                    x: GAME_WIDTH + gameState.distance, 
+                    y: y,
+                    width: width,
+                    height: height,
+                    type: type,
+                    color: color,
+                    worldDistance: gameState.distance + GAME_WIDTH 
+                };
+
+                objects.push(newObject);
+                lastObjectX = GAME_WIDTH;
+            }
+        }
+        
+        // --- ФУНКЦИИ УПРАВЛЕНИЯ ИГРОЙ ---
+
+        function startGame() {
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+
+            introScreen.style.display = 'none';
+            gameState.isRunning = true;
+            gameState.gameOver = false;
+            gameState.startTime = Date.now();
+            
+            // Добавляем диалогового соседа (только Евгений)
+            objects.push({
+                x: GAME_WIDTH + 3500 - gameState.distance,
+                y: gameState.groundY - 60,
+                width: 40,
+                height: 60,
+                type: 'neighbor',
+                color: '#00ff00',
+                worldDistance: 3500
+            });
+            
+            // Добавляем пивной ларек в конец
+            objects.push({
+                x: GAME_WIDTH + GAME_END_DISTANCE - gameState.distance,
+                y: gameState.groundY - 70,
+                width: 70,
+                height: 70,
+                type: 'stall',
+                color: '#ffc300',
+                worldDistance: GAME_END_DISTANCE
+            });
+            
+            // Запускаем основной цикл
+            gameLoop(0);
+        }
+
+        function endGame(message) {
+            gameState.isRunning = false;
+            gameState.gameOver = true;
+            
+            gameOverMessage.textContent = message;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // --- ВРЕМЯ ---
+        function updateTimeDisplay(elapsedMs) {
+            const totalMs = MAX_TIME_MS - (MAX_TIME_MS - elapsedMs);
+            // Используем 22:59:00:000 как начальную точку
+            const startTimeStamp = new Date().setHours(22, 59, 0, 0); 
+            const currentMs = startTimeStamp + totalMs;
+            const date = new Date(currentMs);
+
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mm = String(date.getMinutes()).padStart(2, '0');
+            const ss = String(date.getSeconds()).padStart(2, '0');
+            // Десятые и сотые доли секунды
+            const dd = String(Math.floor(date.getMilliseconds() / 10)).padStart(2, '0');
+
+            timeDisplay.textContent = `${hh}:${mm}:${ss}:${dd}`;
+        }
+
+        // --- ГЛАВНЫЙ ЦИКЛ ---
+        function draw() {
+            // Очистка
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            
+            // Отрисовка
+            drawBackground(0); 
+            objects.forEach(drawObject); 
+            drawYuri(); 
+        }
+
+        function gameLoop(timestamp) {
+            if (gameState.lastTime === 0) gameState.lastTime = timestamp; 
+            
+            const deltaTime = (timestamp - gameState.lastTime) / 1000; 
+            gameState.lastTime = timestamp;
+
+            // 1. ПРОВЕРКА ВРЕМЕНИ (РАБОТАЕТ ВСЕГДА, ДАЖЕ ВО ВРЕМЯ ДИАЛОГА)
+            if (!gameState.gameOver && gameState.startTime) {
+                const elapsed = Date.now() - gameState.startTime;
+                
+                if (elapsed >= MAX_TIME_MS) {
+                    endGame("Не успел! Ларёк закрылся!");
+                } else {
+                    updateTimeDisplay(elapsed);
+                }
+            }
+            
+            // 2. ОБНОВЛЕНИЕ ЛОГИКИ ДВИЖЕНИЯ/КОЛЛИЗИЙ (ТОЛЬКО ЕСЛИ RUNNING)
+            if (gameState.isRunning) {
+                update(deltaTime);
+            }
+            
+            // 3. ОТРИСОВКА
+            draw();
+
+            if (!gameState.gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ ---
+        async function initialize() {
+            const now = new Date();
+            const dateString = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
+
+            // Обновленный текст без упоминания пикселей
+            const introText = `[${dateString}] время 22:59. Где-то на окраине Ростова закончилось пиво. Юрий отправляется в путь.
+
+            --- ПРАВИЛА ИГРЫ ---
+            ЦЕЛЬ: Добраться до пивного ларька до 23:00.
+            УПРАВЛЕНИЕ: [ПРОБЕЛ] - Прыжок.
+            ВСТРЕЧИ: Собаки 🐕 и Бомжи 🧔. Им нужны конфеты 🍬, иначе они вас замедлят.
+            ОПАСНОСТИ: Мусорные баки 🗑️. Столкновение замедляет вас.
+            ВРЕМЯ: Время неумолимо!
+            `;
+
+            // Обработчик нажатия "НАЧАТЬ"
+            preStartButton.addEventListener('click', async () => {
+                preStartButton.style.display = 'none';
+                typewriterTextElement.style.display = 'block'; 
+
+                initAudio(); // Активируем AudioContext
+                
+                await typewriterEffect(typewriterTextElement, introText, 40);
+                startButton.style.display = 'block';
+
+                startButton.addEventListener('click', startGame);
+            }, { once: true });
+            
+            // Установка иконки Юрия по умолчанию
+            speakerLeft.textContent = SPEAKER_ICONS["Юрий"].icon;
+        }
+
+        initialize();
+    </script>
+</body>
+</html>
